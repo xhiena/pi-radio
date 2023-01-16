@@ -4,41 +4,59 @@ from pn532 import *
 from time import sleep
 from pathlib import Path  # for directory listing
 import pygame
+import multiprocessing
 
+BASEDIRECTORY='/home/pi/Music/' #where music and mapping is
 
 def findFolder(index):
     folder=""
-    with open('/home/pi/Music/mapping.txt', "r") as f:
+    with open(BASEDIRECTORY+'mapping.txt', "r") as f:
         line = f.readline()
         while line != '':
             x = line.split("|||")
             if (x[0]==index):
-                folder=x[1]
+                folder=x[1].strip()
                 break
             line = f.readline()
 
     return folder
 
+def playfolder(folder):
+    musicfolder = Path(BASEDIRECTORY+folder)
+    pygame.mixer.init()
+    if musicfolder.exists():
+        for fp in musicfolder.glob('*.mp3'):
+            pygame.mixer.music.load(str(fp))
+            print ("playing: "+str(fp))
+            pygame.mixer.music.play()
+            #now wait until the song is over
+            while pygame.mixer.music.get_busy():
+                sleep(1)  # wait 1 second
+
 def getUIDfromCard():
+    print('Waiting for RFID/NFC card...')
     while True:
-    # Check if a card is available to read
+        # Check if a card is available to read
+        uid2=''
         uid = pn532.read_passive_target(timeout=0.5)
         print('.', end="")
         # Try again if no card is available.
         if uid is None:
             continue
         print('Found card with UID:', [hex(i) for i in uid])
-        return uid
+        for i in uid:
+            uid2+=hex(i)+'-'
+
+        return "-"+uid2
 
 
-pygame.mixer.init()
+
 running=False
 pn532 = None
 attempt = 0
 while not running:
     try:
         attempt+=1
-        print(attempt)
         pn532 = PN532_UART(debug=False, reset=20)
         if pn532 != None:
             running = True
@@ -54,18 +72,23 @@ while not running:
 ic, ver, rev, support = pn532.get_firmware_version()
 print('Found PN532 with firmware version: {0}.{1}'.format(ver, rev))
 pn532.SAM_configuration()
-print('Waiting for RFID/NFC card...')
+nowplaying=""
+proc=None
+while True:
+    uid=getUIDfromCard()
+    print("card uid: "+uid)
+    directory=findFolder(uid)
+    print("folder of the card: "+directory)
+    if(uid!=nowplaying):
+        print("something else (not this folder) or nothing is playing")
+        nowplaying=uid
+        if(proc != None):
+            proc.terminate()
+            print("something is playing, stoping")
+        proc = multiprocessing.Process(target=playfolder, args=(directory,))
+        proc.start()
+        nowplaying='asdasd' #para testear el cambio de disco
+    else:
+        print(uid+" is running!")
 
-uid=getUIDfromCard()
-print(uid)
-directory=findFolder(uid)
-
-DIRECTORY = Path('/home/pi/Music/Amaral - Estrella de mar')
-for fp in DIRECTORY.glob('*.mp3'):
-    # add each file to the queue
-    pygame.mixer.music.load(str(fp))
-    pygame.mixer.music.play()
-
-    #now wait until the song is over
-    while pygame.mixer.music.get_busy():
-        sleep(1)  # wait 1 second
+    sleep(2)

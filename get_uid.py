@@ -1,15 +1,5 @@
-"""
-This example shows connecting to the PN532 with I2C (requires clock
-stretching support), SPI, or UART. SPI is best, it uses the most pins but
-is the most reliable and universally supported.
-After initialization, try waving various 13.56MHz RFID cards over it!
-"""
-
 import RPi.GPIO as GPIO
-
-
 from pn532 import *
-
 
 if __name__ == '__main__':
     try:
@@ -18,8 +8,6 @@ if __name__ == '__main__':
         pn532 = PN532_UART(debug=False, reset=20)
         found = False
         while not found:
-            print('trying')
-            # do stuff
             try:
                 ic, ver, rev, support = pn532.get_firmware_version()
                 found=True
@@ -39,6 +27,11 @@ if __name__ == '__main__':
             if uid is None:
                 continue
             print('Found card with UID:', [hex(i) for i in uid])
+            uid2=""
+            for i in uid:
+                uid2+=hex(i)+'-'
+            print("uid to map: -"+uid2)
+            break
     except Exception as e:
         print(e)
 
