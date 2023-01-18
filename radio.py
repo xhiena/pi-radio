@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 import RPi.GPIO as GPIO
 from pn532 import *
 
@@ -7,6 +9,7 @@ import pygame
 import multiprocessing
 
 BASEDIRECTORY='/home/pi/Music/' #where music and mapping is
+VOLUME=0.4
 
 def findFolder(index):
     folder=""
@@ -25,13 +28,17 @@ def playfolder(folder):
     musicfolder = Path(BASEDIRECTORY+folder)
     pygame.mixer.init()
     if musicfolder.exists():
-        for fp in musicfolder.glob('*.mp3'):
+        print('folder exists')
+        for fp in sorted(musicfolder.glob('*.mp3')):
+            pygame.mixer.music.set_volume(VOLUME)
             pygame.mixer.music.load(str(fp))
             print ("playing: "+str(fp))
             pygame.mixer.music.play()
             #now wait until the song is over
             while pygame.mixer.music.get_busy():
                 sleep(1)  # wait 1 second
+    else:
+        print("folder does not exist")
 
 def getUIDfromCard():
     print('Waiting for RFID/NFC card...')
@@ -80,15 +87,14 @@ while True:
     directory=findFolder(uid)
     print("folder of the card: "+directory)
     if(uid!=nowplaying):
-        print("something else (not this folder) or nothing is playing")
+        print("this folder is not being played, switching to this folder")
         nowplaying=uid
         if(proc != None):
             proc.terminate()
             print("something is playing, stoping")
         proc = multiprocessing.Process(target=playfolder, args=(directory,))
         proc.start()
-        nowplaying='asdasd' #para testear el cambio de disco
     else:
-        print(uid+" is running!")
+        print(uid+" is playing! No need to change music")
 
     sleep(2)
